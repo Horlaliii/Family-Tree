@@ -28,7 +28,8 @@ export async function getGateSettings(): Promise<GateSettings> {
     .single();
   if (error) throw error;
   const value: GateSettings = {
-    enabled: data.passcode_enabled && Boolean(data.passcode_hash),
+    // With no passcode set yet the gate stays shut: only signed-in members get in.
+    enabled: data.passcode_enabled || !data.passcode_hash,
     version: data.passcode_version,
     hasPasscode: Boolean(data.passcode_hash),
   };

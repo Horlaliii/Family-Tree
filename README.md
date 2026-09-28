@@ -155,7 +155,7 @@ Measured locally for a passcode visitor:
    _Site URL_ / _Redirect URLs_.
 4. Sign in once to become the admin (section 6), then open **Admin → Settings**:
    - set the family name, the welcome text and the "start exploring from" ancestor
-   - **set the family passcode**. The gate stays off until a passcode is set.
+   - **set the family passcode**. Until it's set, nobody but signed-in members can get in.
 
 `npm install` runs `scripts/copy-elk-worker.mjs`, which puts the tree-layout worker in `public/`. Vercel runs
 it automatically.
@@ -174,7 +174,7 @@ it automatically.
   ```
 - Visitors only need the **family passcode**:
   - they enter it once and a signed cookie remembers them for a year
-  - five wrong tries from one IP address locks it for 10 minutes
+  - after five tries from one IP address, it locks for 10 minutes
   - changing the passcode in Admin → Settings signs everyone out of the passcode.
 
 ## 7. Backups

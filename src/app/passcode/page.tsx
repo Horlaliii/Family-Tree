@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { getGateSettings } from '@/server/passcode';
 import { getSiteSettings, safeNextPath } from '@/server/settings';
 import { getViewer } from '@/server/viewer';
 
@@ -14,7 +15,7 @@ export default async function PasscodePage({ searchParams }: { searchParams: Pro
   const nextPath = safeNextPath(next);
   if (await getViewer()) redirect(nextPath);
 
-  const { siteName } = await getSiteSettings();
+  const [{ siteName }, gate] = await Promise.all([getSiteSettings(), getGateSettings()]);
 
   return (
     <main className="flex min-h-dvh flex-col">
@@ -26,7 +27,14 @@ export default async function PasscodePage({ searchParams }: { searchParams: Pro
           <p className="text-muted-foreground mt-3">
             This family history is private. Enter the family passcode to come in.
           </p>
-          <PasscodeForm next={nextPath} />
+          {gate.hasPasscode ? (
+            <PasscodeForm next={nextPath} />
+          ) : (
+            <p className="bg-muted mt-8 rounded-lg p-4 text-left">
+              The family passcode hasn&apos;t been set up yet. If you look after this site, sign in and set it
+              in Admin → Settings.
+            </p>
+          )}
           <p className="text-muted-foreground mt-8 text-sm">
             Have an account?{' '}
             <Link href="/login" className="text-primary font-medium underline underline-offset-4">
