@@ -102,6 +102,9 @@ function TreeCanvas({
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(false);
+  // The tree data most recently laid out; differs from `tree` while ELK works.
+  const [laidOut, setLaidOut] = useState<TreeWindow | null>(null);
+  const arranging = laidOut !== tree;
   const [error, setError] = useState<string | null>(null);
   const centerOnFocus = useRef(true);
 
@@ -214,6 +217,7 @@ function TreeCanvas({
       }));
       setNodes(flowNodes);
       setEdges(flowEdges);
+      setLaidOut(tree);
 
       if (centerOnFocus.current) {
         const p = positions[tree.focusId];
@@ -310,7 +314,15 @@ function TreeCanvas({
             void load(tree.focusId, up, v, lineage);
           }}
         />
-        {loading && <Loader2 className="text-primary size-5 animate-spin" aria-label="Loading" />}
+        {(loading || arranging) && (
+          <span
+            className="bg-card/95 text-muted-foreground flex items-center gap-2 rounded-lg border px-2 py-1 text-sm"
+            role="status"
+          >
+            <Loader2 className="text-primary size-4 animate-spin" aria-hidden />
+            {loading ? 'Loading…' : 'Arranging…'}
+          </span>
+        )}
         {legend}
       </div>
 

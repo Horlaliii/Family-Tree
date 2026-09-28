@@ -14,5 +14,7 @@ export default defineConfig([
     'playwright-report/**',
     'test-results/**',
     'public/elk-worker.min.js',
+    '.scratch/**',
+    'backups/**',
   ]),
 ]);

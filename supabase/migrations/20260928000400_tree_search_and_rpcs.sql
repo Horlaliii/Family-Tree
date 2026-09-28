@@ -111,7 +111,147 @@ $$;
 -- (mothers, step-parents, the other parent of a descendant), spouses of
 -- line people, siblings and half-siblings of line ancestors, and
 -- step/foster children of line descendants.
+--
+-- Two parts, for speed with thousands of people:
+--   tree_window_structure  walks the base tables (SECURITY DEFINER) and
+--                          returns only ids and relationship flags, which
+--                          every browser may see anyway;
+--   get_tree_window        adds names and dates through the redacting
+--                          views, for the final (capped) set only.
 -- ---------------------------------------------------------------------------
+create function public.tree_window_structure(
+  p_focus uuid,
+  p_up integer,
+  p_down integer,
+  p_lineage text,
+  p_max integer default 800
+)
+returns table (
+  person_id uuid,
+  on_line boolean,
+  distance integer,
+  has_more_parents boolean,
+  has_more_children boolean,
+  has_father boolean,
+  has_mother boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_claims jsonb := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+begin
+  -- Same audience as can_browse(): passcode visitors, active members,
+  -- and server-side maintenance roles.
+  if not (
+    session_user in ('postgres', 'supabase_admin')
+    or coalesce(v_claims ->> 'role', '') in ('visitor', 'service_role')
+    or public.is_member()
+  ) then
+    raise exception 'Not allowed' using errcode = '42501';
+  end if;
+
+  return query
+  with recursive
+  live as (
+    select pc.parent_id, pc.child_id, pc.relationship_type
+    from public.parent_child pc
+    join public.persons a on a.id = pc.parent_id and a.deleted_at is null
+    join public.persons b on b.id = pc.child_id and b.deleted_at is null
+  ),
+  up(id, depth) as (
+    select p_focus, 0
+    union
+    select l.parent_id, up.depth + 1
+    from up
+    join live l on l.child_id = up.id
+    join public.persons par on par.id = l.parent_id
+    where up.depth < p_up
+      and l.relationship_type in ('biological', 'adoptive')
+      and (
+        p_lineage = 'both'
+        or (p_lineage = 'paternal' and par.sex = 'male')
+        or (p_lineage = 'maternal' and par.sex = 'female')
+      )
+  ),
+  down(id, depth, continues) as (
+    select p_focus, 0, true
+    union
+    select l.child_id, down.depth + 1,
+      (
+        p_lineage = 'both'
+        or (p_lineage = 'paternal' and ch.sex = 'male')
+        or (p_lineage = 'maternal' and ch.sex = 'female')
+      )
+    from down
+    join live l on l.parent_id = down.id
+    join public.persons ch on ch.id = l.child_id
+    where down.continues
+      and down.depth < p_down
+      and l.relationship_type in ('biological', 'adoptive')
+  ),
+  line as (
+    select id, min(depth) as dist, bool_or(true) as on_line from (
+      select id, depth from up
+      union all
+      select id, depth from down
+    ) x group by id
+  ),
+  up_open as (select id, depth from up where depth < p_up),
+  down_all as (select id, min(depth) as depth, bool_or(continues) as continues from down group by id),
+  candidates(id, dist, on_line) as (
+    select id, dist, true from line
+    -- parents of line people (not above the top of the window)
+    union all
+    select l.parent_id, x.depth + 1, false
+    from (select id, depth from up_open union all select id, depth from down_all) x
+    join live l on l.child_id = x.id
+    -- spouses of line people
+    union all
+    select case when u.partner_a_id = ln.id then u.partner_b_id else u.partner_a_id end, ln.dist, false
+    from line ln
+    join public.unions u on ln.id in (u.partner_a_id, u.partner_b_id)
+    -- siblings and half-siblings of line ancestors (and the focus)
+    union all
+    select l2.child_id, uo.depth, false
+    from up_open uo
+    join live l1 on l1.child_id = uo.id
+    join live l2 on l2.parent_id = l1.parent_id
+    -- every child of descendants the line continues through
+    union all
+    select l.child_id, d.depth + 1, false
+    from down_all d
+    join live l on l.parent_id = d.id
+    where d.continues and d.depth < p_down
+  ),
+  chosen as (
+    select c.id, bool_or(c.on_line) as on_line, min(c.dist) as dist
+    from candidates c
+    join public.persons p on p.id = c.id and p.deleted_at is null
+    group by c.id
+    order by bool_or(c.on_line) desc, min(c.dist), c.id
+    limit p_max
+  )
+  select
+    ch.id,
+    ch.on_line,
+    ch.dist,
+    exists (select 1 from live l where l.child_id = ch.id and l.parent_id not in (select id from chosen)),
+    exists (select 1 from live l where l.parent_id = ch.id and l.child_id not in (select id from chosen)),
+    exists (
+      select 1 from live l join public.persons f on f.id = l.parent_id
+      where l.child_id = ch.id and f.sex = 'male' and l.relationship_type in ('biological', 'adoptive')
+    ),
+    exists (
+      select 1 from live l join public.persons m on m.id = l.parent_id
+      where l.child_id = ch.id and m.sex = 'female' and l.relationship_type in ('biological', 'adoptive')
+    )
+  from chosen ch;
+end;
+$$;
+
 create function public.get_tree_window(
   p_focus uuid,
   p_up integer default 3,
@@ -127,166 +267,65 @@ declare
   v_up integer := least(greatest(coalesce(p_up, 3), 0), 10);
   v_down integer := least(greatest(coalesce(p_down, 2), 0), 10);
   v_lineage text := coalesce(p_lineage, 'paternal');
-  v_line_up uuid[];
-  v_up_expandable uuid[];
-  v_line_down uuid[];
-  v_continuing uuid[];
-  v_line uuid[];
-  v_line_parents uuid[];
-  v_up_parents uuid[];
-  v_nodes uuid[];
-  v_max_nodes constant integer := 800;
+  v_max constant integer := 300;
 begin
   if v_lineage not in ('both', 'paternal', 'maternal') then
     raise exception 'Unknown lineage: %', v_lineage using errcode = '22023';
   end if;
-
   if not exists (select 1 from public.v_persons where id = p_focus) then
     return null;
   end if;
 
-  with recursive up(id, depth) as (
-    select p_focus, 0
-    union
-    select pc.parent_id, up.depth + 1
-    from up
-    join public.v_parent_child pc on pc.child_id = up.id
-    join public.v_persons par on par.id = pc.parent_id
-    where up.depth < v_up
-      and pc.relationship_type in ('biological', 'adoptive')
-      and (
-        v_lineage = 'both'
-        or (v_lineage = 'paternal' and par.sex = 'male')
-        or (v_lineage = 'maternal' and par.sex = 'female')
-      )
-  )
-  select array_agg(distinct id), array_agg(distinct id) filter (where depth < v_up)
-  into v_line_up, v_up_expandable
-  from up;
-
-  with recursive down(id, depth, continues) as (
-    select p_focus, 0, true
-    union
-    select pc.child_id, down.depth + 1,
-      (
-        v_lineage = 'both'
-        or (v_lineage = 'paternal' and ch.sex = 'male')
-        or (v_lineage = 'maternal' and ch.sex = 'female')
-      )
-    from down
-    join public.v_parent_child pc on pc.parent_id = down.id
-    join public.v_persons ch on ch.id = pc.child_id
-    where down.continues
-      and down.depth < v_down
-      and pc.relationship_type in ('biological', 'adoptive')
-  )
-  select array_agg(distinct id), array_agg(distinct id) filter (where continues and depth < v_down)
-  into v_line_down, v_continuing
-  from down;
-
-  v_line := array(select distinct x from unnest(v_line_up || v_line_down) x);
-
-  -- Parents of line people, except above the top of the window.
-  v_line_parents := array(
-    select distinct pc.parent_id
-    from public.v_parent_child pc
-    where pc.child_id = any(v_up_expandable || v_line_down)
-  );
-  v_up_parents := array(
-    select distinct pc.parent_id
-    from public.v_parent_child pc
-    where pc.child_id = any(v_up_expandable)
-  );
-
-  v_nodes := v_line
-    || v_line_parents
-    -- spouses of line people
-    || array(
-      select case when u.partner_a_id = any(v_line) then u.partner_b_id else u.partner_a_id end
-      from public.v_unions u
-      where u.partner_a_id = any(v_line) or u.partner_b_id = any(v_line)
+  return (
+    with t as materialized (
+      select * from public.tree_window_structure(p_focus, v_up, v_down, v_lineage, v_max)
     )
-    -- siblings and half-siblings of line ancestors (and of the focus)
-    || array(
-      select pc.child_id from public.v_parent_child pc where pc.parent_id = any(v_up_parents)
-    )
-    -- every child (any link type) of descendants the line continues through
-    || array(
-      select pc.child_id from public.v_parent_child pc where pc.parent_id = any(v_continuing)
-    );
-
-  -- De-duplicate, keeping line people first, and cap the window.
-  v_nodes := array(
-    select x
-    from (
-      select x, min(ord) as ord
-      from unnest(v_nodes) with ordinality as t(x, ord)
-      where x is not null
-      group by x
-    ) d
-    order by ord
-    limit v_max_nodes
-  );
-
-  return jsonb_build_object(
-    'focusId', p_focus,
-    'lineage', v_lineage,
-    'up', v_up,
-    'down', v_down,
-    'truncated', coalesce(array_length(v_nodes, 1), 0) >= v_max_nodes,
-    'nodes', coalesce((
-      select jsonb_agg(
-        public.person_card_json(p) || jsonb_build_object(
-          'onLine', p.id = any(v_line),
-          'hasMoreParents', exists (
-            select 1 from public.v_parent_child pc
-            where pc.child_id = p.id and not (pc.parent_id = any(v_nodes))
-          ),
-          'hasMoreChildren', exists (
-            select 1 from public.v_parent_child pc
-            where pc.parent_id = p.id and not (pc.child_id = any(v_nodes))
-          ),
-          'hasFather', exists (
-            select 1 from public.v_parent_child pc
-            join public.v_persons f on f.id = pc.parent_id
-            where pc.child_id = p.id and f.sex = 'male'
-              and pc.relationship_type in ('biological', 'adoptive')
-          ),
-          'hasMother', exists (
-            select 1 from public.v_parent_child pc
-            join public.v_persons m on m.id = pc.parent_id
-            where pc.child_id = p.id and m.sex = 'female'
-              and pc.relationship_type in ('biological', 'adoptive')
+    select jsonb_build_object(
+      'focusId', p_focus,
+      'lineage', v_lineage,
+      'up', v_up,
+      'down', v_down,
+      'truncated', (select count(*) from t) >= v_max,
+      'nodes', coalesce((
+        select jsonb_agg(
+          public.person_card_json(p) || jsonb_build_object(
+            'onLine', t.on_line,
+            'hasMoreParents', t.has_more_parents,
+            'hasMoreChildren', t.has_more_children,
+            'hasFather', t.has_father,
+            'hasMother', t.has_mother
           )
+          order by t.distance, p.id
         )
-        order by p.id
-      )
-      from public.v_persons p
-      where p.id = any(v_nodes)
-    ), '[]'::jsonb),
-    'edges', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', pc.id,
-        'parentId', pc.parent_id,
-        'childId', pc.child_id,
-        'type', pc.relationship_type
-      ) order by pc.id)
-      from public.v_parent_child pc
-      where pc.parent_id = any(v_nodes) and pc.child_id = any(v_nodes)
-    ), '[]'::jsonb),
-    'unions', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', u.id,
-        'partnerAId', u.partner_a_id,
-        'partnerBId', u.partner_b_id,
-        'type', u.union_type,
-        'partnerAOrder', u.partner_a_order,
-        'partnerBOrder', u.partner_b_order,
-        'ended', u.end_reason is not null or u.end_date is not null
-      ) order by u.partner_a_order, u.id)
-      from public.v_unions u
-      where u.partner_a_id = any(v_nodes) and u.partner_b_id = any(v_nodes)
-    ), '[]'::jsonb)
+        from t
+        join public.v_persons p on p.id = t.person_id
+      ), '[]'::jsonb),
+      'edges', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'id', pc.id,
+          'parentId', pc.parent_id,
+          'childId', pc.child_id,
+          'type', pc.relationship_type
+        ) order by pc.id)
+        from public.v_parent_child pc
+        join t a on a.person_id = pc.parent_id
+        join t b on b.person_id = pc.child_id
+      ), '[]'::jsonb),
+      'unions', coalesce((
+        select jsonb_agg(jsonb_build_object(
+          'id', u.id,
+          'partnerAId', u.partner_a_id,
+          'partnerBId', u.partner_b_id,
+          'type', u.union_type,
+          'partnerAOrder', u.partner_a_order,
+          'partnerBOrder', u.partner_b_order,
+          'ended', u.end_reason is not null or u.end_date is not null
+        ) order by u.partner_a_order, u.id)
+        from public.v_unions u
+        join t a on a.person_id = u.partner_a_id
+        join t b on b.person_id = u.partner_b_id
+      ), '[]'::jsonb)
+    )
   );
 end;
 $$;
@@ -857,6 +896,7 @@ $$;
 
 grant execute on function
   public.person_card_json(public.v_persons),
+  public.tree_window_structure(uuid, integer, integer, text, integer),
   public.get_ancestors(uuid, integer, public.parent_relationship[]),
   public.get_descendants(uuid, integer, public.parent_relationship[]),
   public.get_tree_window(uuid, integer, integer, text),

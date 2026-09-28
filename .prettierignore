@@ -8,3 +8,4 @@ package-lock.json
 AGENTS.md
 CLAUDE.md
 public/elk-worker.min.js
+.scratch

@@ -111,19 +111,19 @@ begin
     'places', 'person_names', 'parent_child', 'unions', 'media_people', 'citations'
   ]
   loop
-    execute format('create policy "members read" on public.%I for select to authenticated using (public.is_member())', t);
-    execute format('create policy "editors insert" on public.%I for insert to authenticated with check (public.is_editor())', t);
-    execute format('create policy "editors update" on public.%I for update to authenticated using (public.is_editor()) with check (public.is_editor())', t);
-    execute format('create policy "editors delete" on public.%I for delete to authenticated using (public.is_editor())', t);
+    execute format('create policy "members read" on public.%I for select to authenticated using ((select public.is_member()))', t);
+    execute format('create policy "editors insert" on public.%I for insert to authenticated with check ((select public.is_editor()))', t);
+    execute format('create policy "editors update" on public.%I for update to authenticated using ((select public.is_editor())) with check ((select public.is_editor()))', t);
+    execute format('create policy "editors delete" on public.%I for delete to authenticated using ((select public.is_editor()))', t);
   end loop;
 
   -- Soft-deletable tables
   foreach t in array array['persons', 'media', 'facts', 'sources']
   loop
-    execute format('create policy "members read" on public.%I for select to authenticated using (public.is_member() and (deleted_at is null or public.is_editor()))', t);
-    execute format('create policy "editors insert" on public.%I for insert to authenticated with check (public.is_editor())', t);
-    execute format('create policy "editors update" on public.%I for update to authenticated using (public.is_editor()) with check (public.is_editor())', t);
-    execute format('create policy "admins delete" on public.%I for delete to authenticated using (public.is_admin())', t);
+    execute format('create policy "members read" on public.%I for select to authenticated using ((select public.is_member()) and (deleted_at is null or (select public.is_editor())))', t);
+    execute format('create policy "editors insert" on public.%I for insert to authenticated with check ((select public.is_editor()))', t);
+    execute format('create policy "editors update" on public.%I for update to authenticated using ((select public.is_editor())) with check ((select public.is_editor()))', t);
+    execute format('create policy "admins delete" on public.%I for delete to authenticated using ((select public.is_admin()))', t);
   end loop;
 end;
 $$;
@@ -133,18 +133,18 @@ create policy "read own profile or admin" on public.user_profiles
   using (user_id = auth.uid() or public.is_admin());
 create policy "admins update profiles" on public.user_profiles
   for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using ((select public.is_admin())) with check ((select public.is_admin()));
 
 create policy "admins read audit" on public.audit_log
   for select to authenticated
-  using (public.is_admin());
+  using ((select public.is_admin()));
 
 create policy "browsers read settings" on public.site_settings
   for select to authenticated, visitor
-  using (public.can_browse());
+  using ((select public.can_browse()));
 create policy "admins update settings" on public.site_settings
   for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+  using ((select public.is_admin())) with check ((select public.is_admin()));
 
 -- ---------------------------------------------------------------------------
 -- Redacting views: the app's read path
@@ -158,7 +158,7 @@ select
   p.profile_photo_id,
   s.is_living,
   s.full as can_view_details,
-  case when public.is_editor() then p.is_living_override end as is_living_override,
+  case when (select public.is_editor()) then p.is_living_override end as is_living_override,
   case when s.full then p.birth_date end as birth_date,
   case when s.full then p.birth_precision end as birth_precision,
   case when s.full then p.birth_qualifier end as birth_qualifier,
@@ -184,9 +184,9 @@ select
   p.updated_at
 from public.persons p
 cross join lateral (select public.person_is_living(p) as is_living) l
-cross join lateral (select l.is_living, public.has_full_access() or not l.is_living as full) s
+cross join lateral (select l.is_living, (select public.has_full_access()) or not l.is_living as full) s
 where p.deleted_at is null
-  and public.can_browse();
+  and (select public.can_browse());
 
 -- Visitors only see the primary name of a living person (so searching a
 -- nickname cannot reveal who it belongs to).
@@ -203,7 +203,7 @@ select pc.id, pc.parent_id, pc.child_id, pc.relationship_type, pc.confidence
 from public.parent_child pc
 join public.persons a on a.id = pc.parent_id and a.deleted_at is null
 join public.persons b on b.id = pc.child_id and b.deleted_at is null
-where public.can_browse();
+where (select public.can_browse());
 
 -- Union dates are private while either partner is living.
 create view public.v_unions as
@@ -227,10 +227,10 @@ from public.unions u
 join public.persons a on a.id = u.partner_a_id and a.deleted_at is null
 join public.persons b on b.id = u.partner_b_id and b.deleted_at is null
 cross join lateral (
-  select public.has_full_access()
+  select (select public.has_full_access())
       or (not public.person_is_living(a) and not public.person_is_living(b)) as full
 ) s
-where public.can_browse();
+where (select public.can_browse());
 
 create view public.v_facts as
 select f.id, f.person_id, f.fact_type, f.custom_label,
@@ -247,9 +247,9 @@ select c.id, c.source_id, c.fact_id, c.person_id, c.person_field, c.name_id,
        c.parent_child_id, c.union_id, c.detail
 from public.citations c
 join public.sources s on s.id = c.source_id and s.deleted_at is null
-where public.can_browse()
+where (select public.can_browse())
   and (
-    public.has_full_access()
+    (select public.has_full_access())
     or (c.fact_id is not null and exists (select 1 from public.v_facts f where f.id = c.fact_id))
     or (c.person_id is not null and public.can_view_person_details_by_id(c.person_id))
     or (c.name_id is not null and exists (
@@ -269,9 +269,9 @@ select s.id, s.title, s.source_type, s.informant, s.recorded_on, s.notes, s.medi
        s.created_at, s.updated_at
 from public.sources s
 where s.deleted_at is null
-  and public.can_browse()
+  and (select public.can_browse())
   and (
-    public.has_full_access()
+    (select public.has_full_access())
     or exists (select 1 from public.v_citations c where c.source_id = s.id)
   );
 
@@ -286,9 +286,9 @@ select m.id, m.storage_path, m.thumbnail_path, m.media_type, m.mime_type,
        m.created_at, m.updated_at
 from public.media m
 where m.deleted_at is null
-  and public.can_browse()
+  and (select public.can_browse())
   and (
-    public.has_full_access()
+    (select public.has_full_access())
     or exists (
       select 1 from public.persons p
       where p.profile_photo_id = m.id and p.deleted_at is null
@@ -321,9 +321,9 @@ join public.persons p on p.id = mp.person_id and p.deleted_at is null;
 create view public.v_places as
 select pl.id, pl.name, pl.town, pl.region, pl.country, pl.lat, pl.lng, pl.search_text
 from public.places pl
-where public.can_browse()
+where (select public.can_browse())
   and (
-    public.has_full_access()
+    (select public.has_full_access())
     or exists (
       select 1 from public.v_persons p
       where pl.id in (p.birth_place_id, p.death_place_id, p.hometown_place_id)
@@ -350,14 +350,14 @@ on conflict (id) do nothing;
 
 create policy "editors upload media" on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'media' and public.is_editor());
+  with check (bucket_id = 'media' and (select public.is_editor()));
 create policy "editors update media" on storage.objects
   for update to authenticated
-  using (bucket_id = 'media' and public.is_editor())
-  with check (bucket_id = 'media' and public.is_editor());
+  using (bucket_id = 'media' and (select public.is_editor()))
+  with check (bucket_id = 'media' and (select public.is_editor()));
 create policy "editors delete media" on storage.objects
   for delete to authenticated
-  using (bucket_id = 'media' and public.is_editor());
+  using (bucket_id = 'media' and (select public.is_editor()));
 create policy "editors read media" on storage.objects
   for select to authenticated
-  using (bucket_id = 'media' and public.is_editor());
+  using (bucket_id = 'media' and (select public.is_editor()));
