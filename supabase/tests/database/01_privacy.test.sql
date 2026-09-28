@@ -2,9 +2,12 @@
 -- Runs against the seeded sample family (supabase db reset).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(37);
 
 -- Two users: the first becomes an active admin, the second is pending.
+-- Start from no users (rolled back at the end), whatever the local data.
+delete from auth.users;
+
 insert into auth.users (id, email, raw_user_meta_data)
 values
   ('11111111-1111-4111-8111-111111111111', 'admin@example.com', '{"full_name": "Admin"}'),
@@ -16,6 +19,22 @@ select is(
 select is(
   (select role::text || '/' || status::text from public.user_profiles where user_id = '22222222-2222-4222-8222-222222222222'),
   'member/pending', 'later users are pending members');
+
+-- Media covering each visitor rule.
+insert into public.media (id, storage_path, media_type, mime_type) values
+  ('f0000000-0000-4000-8000-000000000001', 'm1/original.jpg', 'photo', 'image/jpeg'),
+  ('f0000000-0000-4000-8000-000000000002', 'm2/original.jpg', 'photo', 'image/jpeg'),
+  ('f0000000-0000-4000-8000-000000000003', 'm3/original.jpg', 'photo', 'image/jpeg'),
+  ('f0000000-0000-4000-8000-000000000004', 'm4/original.pdf', 'document', 'application/pdf'),
+  ('f0000000-0000-4000-8000-000000000005', 'm5/original.jpg', 'photo', 'image/jpeg');
+insert into public.media_people (media_id, person_id) values
+  ('f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000012'), -- living only
+  ('f0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003'), -- deceased only
+  ('f0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000003'), -- mixed
+  ('f0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000012'),
+  ('f0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000012');
+update public.persons set profile_photo_id = 'f0000000-0000-4000-8000-000000000005'
+  where id = 'a0000000-0000-4000-8000-000000000012';
 
 -- Living status rules -------------------------------------------------------
 select is(public.person_is_living_by_id('a0000000-0000-4000-8000-000000000012'), true, 'born 1941, no death: living');
@@ -65,6 +84,16 @@ select ok((select count(*) from public.search_people('Abena Mensah')) >= 1,
   'visitor can find a living person by display name');
 select is((select count(*)::integer from public.v_places where id = 'b0000000-0000-4000-8000-000000000006'),
   0, 'visitor does not see a place only used by a living person''s facts');
+select is((select count(*)::integer from public.v_media where id = 'f0000000-0000-4000-8000-000000000001'),
+  0, 'visitor cannot see a photo of a living person');
+select is((select count(*)::integer from public.v_media where id = 'f0000000-0000-4000-8000-000000000002'),
+  1, 'visitor can see a photo of a deceased person');
+select is((select count(*)::integer from public.v_media where id = 'f0000000-0000-4000-8000-000000000003'),
+  0, 'visitor cannot see a photo with living and deceased people');
+select is((select count(*)::integer from public.v_media where id = 'f0000000-0000-4000-8000-000000000004'),
+  0, 'visitor cannot see untagged media');
+select is((select count(*)::integer from public.v_media where id = 'f0000000-0000-4000-8000-000000000005'),
+  1, 'visitor can see a living person''s own profile photo');
 reset role;
 
 -- Pending user sees nothing -----------------------------------------------------

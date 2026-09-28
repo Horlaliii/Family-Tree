@@ -4,6 +4,9 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(14);
 
+-- Start from no users (rolled back at the end), whatever the local data.
+delete from auth.users;
+
 insert into auth.users (id, email)
 values
   ('11111111-1111-4111-8111-111111111111', 'admin@example.com'),
