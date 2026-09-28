@@ -120,9 +120,9 @@ describe('buildGraph', () => {
 });
 
 describe('familyOrder', () => {
-  it('keeps each spouse next to their partner and children after them', () => {
+  it('puts a man between his two wives and groups children by marriage', () => {
     const order = familyOrder(polygamous).map((n) => n.id);
-    expect(order.slice(0, 3)).toEqual(['kwame', 'ama', 'yaa']);
+    expect(order.slice(0, 3)).toEqual(['ama', 'kwame', 'yaa']);
     expect(order.slice(3)).toEqual(['k1', 'k2', 'k3']);
   });
 });

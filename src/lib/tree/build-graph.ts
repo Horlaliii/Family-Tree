@@ -97,15 +97,30 @@ export function familyOrder(window: TreeWindow): TreeNodeData[] {
     return true;
   };
   const visit = (id: string) => {
-    if (!emit(id)) return;
+    if (seen.has(id)) return;
     const spouses = (spousesOf.get(id) ?? []).sort((a, b) => a.order - b.order);
-    // A spouse's own parents are placed before them, so they aren't orphaned.
-    for (const s of spouses) emit(s.id);
-    const kids = [id, ...spouses.map((s) => s.id)]
-      .flatMap((p) => childrenOf.get(p) ?? [])
-      .map((c) => people.get(c)!)
-      .sort(byBirth);
-    for (const k of kids) visit(k.id);
+    // With several spouses the person sits in the middle: first wife on the
+    // left, later wives on the right, so each couple stays side by side.
+    const left = spouses.length >= 2 ? spouses.slice(0, Math.floor(spouses.length / 2)) : [];
+    const right = spouses.slice(left.length);
+    for (const s of left) emit(s.id);
+    emit(id);
+    for (const s of right) emit(s.id);
+
+    // Children grouped by marriage (in spouse order), each group oldest first;
+    // then children with no recorded partner, then a spouse's other children.
+    const mine = childrenOf.get(id) ?? [];
+    const withSpouse = (sid: string) => mine.filter((c) => parentsOf.get(c)?.includes(sid));
+    const groups = [...left, ...right].map((sp) => withSpouse(sp.id));
+    const grouped = new Set(groups.flat());
+    groups.push(mine.filter((c) => !grouped.has(c)));
+    for (const sp of [...left, ...right]) {
+      groups.push((childrenOf.get(sp.id) ?? []).filter((c) => !mine.includes(c)));
+    }
+    for (const group of groups) {
+      const kids = [...new Set(group)].map((c) => people.get(c)!).sort(byBirth);
+      for (const k of kids) visit(k.id);
+    }
   };
 
   const roots = window.nodes.filter((n) => !parentsOf.get(n.id)?.length).sort(byBirth);

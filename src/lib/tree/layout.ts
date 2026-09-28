@@ -44,8 +44,14 @@ export async function layoutGraph(graph: Graph): Promise<Positions> {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
       'elk.layered.layering.strategy': 'NETWORK_SIMPLEX',
-      'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-      'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
+      // Network simplex keeps relatives closest together; Brandes-Koepf is much
+      // faster for very large windows.
+      ...(graph.nodes.length <= 250
+        ? { 'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX' }
+        : {
+            'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+            'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
+          }),
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
       'elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
