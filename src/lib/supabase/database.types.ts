@@ -863,6 +863,11 @@ isOneToOne: false
 { Args: { "max_results"?: number,"q": string,"skip"?: number }; Returns: {
               "card": Json,"display_name": string,"id": string,"matched_name": string,"parent_names": (string)[],"score": number,"slug": string,"total_count": number
             }[]
+                           },
+"tree_window_structure":
+{ Args: { "p_down": number,"p_focus": string,"p_lineage": string,"p_max"?: number,"p_up": number }; Returns: {
+              "distance": number,"has_father": boolean,"has_more_children": boolean,"has_more_parents": boolean,"has_mother": boolean,"on_line": boolean,"person_id": string
+            }[]
                            }
           }
           Enums: {

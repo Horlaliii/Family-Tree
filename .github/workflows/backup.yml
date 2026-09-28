@@ -1,0 +1,46 @@
+name: Weekly database backup
+
+# Dumps the production database every Sunday and keeps it as a private
+# workflow artifact for 90 days. Add the repository secret SUPABASE_DB_URL
+# (Supabase → Connect → Session pooler connection string, with the password)
+# to turn it on. See "Backups" in the README.
+
+on:
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the secret is set
+        id: guard
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "SUPABASE_DB_URL is not set; skipping backup."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip != 'true'
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          node-version: 22
+      - name: Dump roles, schema and data
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backup
+          npx -y supabase@2 db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
+          npx -y supabase@2 db dump --db-url "$DB_URL" -f backup/schema.sql
+          npx -y supabase@2 db dump --db-url "$DB_URL" -f backup/data.sql --use-copy --data-only
+      - uses: actions/upload-artifact@v4
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          name: family-tree-db-${{ github.run_id }}
+          path: backup/
+          retention-days: 90
