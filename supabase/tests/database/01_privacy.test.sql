@@ -2,7 +2,7 @@
 -- Runs against the seeded sample family (supabase db reset).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(38);
 
 -- Two users: the first becomes an active admin, the second is pending.
 -- Start from no users (rolled back at the end), whatever the local data.
@@ -50,6 +50,10 @@ select throws_ok('select * from public.v_persons', '42501', null, 'anon cannot r
 select throws_ok('select * from public.persons', '42501', null, 'anon cannot read base tables');
 select throws_ok($$select public.search_people('Mensah')$$, '42501', null, 'anon cannot search');
 reset role;
+select is(
+  (select array_agg(proname::text order by proname) from pg_proc
+   where pronamespace = 'public'::regnamespace and has_function_privilege('anon', oid, 'execute')),
+  null, 'anon cannot execute any public function');
 
 -- Visitor ---------------------------------------------------------------------
 set local role visitor;
