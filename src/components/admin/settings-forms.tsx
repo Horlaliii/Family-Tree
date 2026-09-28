@@ -1,6 +1,6 @@
 'use client';
 
-import { KeyRound, Loader2, Save } from 'lucide-react';
+import { KeyRound, Loader2, LockKeyhole, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
@@ -11,7 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { SearchResult } from '@/lib/types';
-import { changePasscode, saveSiteSettings, setPasscodeEnabled } from '@/server/actions/settings';
+import {
+  changeOwnPassword,
+  changePasscode,
+  saveSiteSettings,
+  setPasscodeEnabled,
+} from '@/server/actions/settings';
 
 export function SiteSettingsForm({
   siteName,
@@ -150,5 +155,58 @@ export function PasscodeSettings({ enabled }: { enabled: boolean }) {
         </Button>
       </form>
     </div>
+  );
+}
+
+export function PasswordSettings({ email }: { email: string | null }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        startTransition(async () => {
+          const res = await changeOwnPassword({ password, confirm });
+          if (!res.ok) return setMessage({ ok: false, text: res.error });
+          setPassword('');
+          setConfirm('');
+          setMessage({ ok: true, text: 'Password changed. Use it next time you sign in.' });
+        });
+      }}
+    >
+      <p className="text-muted-foreground text-sm">
+        You sign in with {email ? <strong>{email}</strong> : 'your email address'} and this password.
+      </p>
+      {/* Lets password managers pair the new password with the right account. */}
+      <input type="hidden" name="username" autoComplete="username" value={email ?? ''} readOnly />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="new-password" label="New password" hint="At least 8 characters.">
+          <Input
+            id="new-password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        <Field id="confirm-password" label="Type it again">
+          <Input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </Field>
+      </div>
+      {message && <Alert variant={message.ok ? 'info' : 'destructive'}>{message.text}</Alert>}
+      <Button type="submit" disabled={pending}>
+        {pending ? <Loader2 className="animate-spin" /> : <LockKeyhole />} Change password
+      </Button>
+    </form>
   );
 }

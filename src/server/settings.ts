@@ -27,3 +27,12 @@ export function safeNextPath(value: unknown, fallback = '/'): string {
 export function clientIp(h: Headers): string {
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown';
 }
+
+/** Until Phase 2 invites exist, only the very first person may create an account. */
+export async function signUpsOpen(): Promise<boolean> {
+  const { count } = await createAdminSupabase()
+    .from('user_profiles')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('role', 'admin');
+  return (count ?? 0) === 0;
+}

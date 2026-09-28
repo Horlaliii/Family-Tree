@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { PasscodeSettings, SiteSettingsForm } from '@/components/admin/settings-forms';
+import { PasscodeSettings, PasswordSettings, SiteSettingsForm } from '@/components/admin/settings-forms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SearchResult } from '@/lib/types';
 import { getGateSettings } from '@/server/passcode';
@@ -11,7 +11,7 @@ import { getDb, requireRole } from '@/server/viewer';
 export const metadata: Metadata = { title: 'Settings' };
 
 export default async function SettingsPage() {
-  await requireRole('admin');
+  const viewer = await requireRole('admin');
   const db = await getDb();
   const [settings, gate] = await Promise.all([getSiteSettings(), getGateSettings()]);
   const featured = settings.featuredPersonId ? await getPersonById(db, settings.featuredPersonId) : null;
@@ -47,6 +47,14 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <PasscodeSettings enabled={gate.enabled} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Your password</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PasswordSettings email={viewer.email} />
         </CardContent>
       </Card>
     </div>
