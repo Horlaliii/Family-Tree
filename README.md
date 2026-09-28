@@ -34,13 +34,13 @@ Stack: Next.js 16 (App Router, TypeScript strict), Tailwind CSS v4 + shadcn-styl
 
 ## 1. Run it locally
 
-You need Node.js 22+ and Docker (for the local Supabase stack).
+You need Node.js 22+, Git, and Docker (Docker Desktop on Windows or macOS) running for the local Supabase
+stack. The same commands work in PowerShell, Terminal or bash:
 
 ```bash
 npm install                      # also copies the tree-layout worker into public/
-npx supabase start               # local Postgres, Auth, Storage, Studio and a test mail inbox
-npx supabase status -o env       # prints the local URL and keys
-cp .env.example .env.local       # then paste in the values (see section 3)
+npx supabase start               # local Postgres, Auth, Storage, Studio and a test mail inbox (first run is slow)
+npm run setup:local              # writes .env.local with the local URL and keys
 npm run dev                      # http://localhost:3000
 ```
 
