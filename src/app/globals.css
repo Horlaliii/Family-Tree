@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Palette. Change these tokens to re-theme the whole site.
+ * Warm cream background, forest green primary, muted gold accent.
+ */
+:root {
+  --background: #fbf7f0;
+  --foreground: #2b2118;
+  --card: #fffdf8;
+  --card-foreground: #2b2118;
+  --popover: #fffdf8;
+  --popover-foreground: #2b2118;
+  --primary: #2f5d46;
+  --primary-foreground: #fbf7f0;
+  --secondary: #efe6d6;
+  --secondary-foreground: #3b2f24;
+  --muted: #f1eadf;
+  --muted-foreground: #6b5d4f;
+  --accent: #b8913a;
+  --accent-foreground: #2b2118;
+  --accent-soft: #f5ead0;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --success: #2f6b3f;
+  --warning: #9a6a00;
+  --border: #e4d9c8;
+  --input: #d9ccb8;
+  --ring: #2f5d46;
+  --radius: 0.75rem;
+
+  /* Tree view */
+  --tree-line: #8a7a66;
+  --tree-line-highlight: #2f5d46;
+  --tree-node-dim: 0.45;
+
+  /* Kente-inspired accent stripes */
+  --kente-1: #b8913a;
+  --kente-2: #2f5d46;
+  --kente-3: #7a3b22;
+  --kente-4: #e7c873;
+}
+
+.dark {
+  --background: #16130f;
+  --foreground: #f2ebdd;
+  --card: #1f1a15;
+  --card-foreground: #f2ebdd;
+  --popover: #1f1a15;
+  --popover-foreground: #f2ebdd;
+  --primary: #86bb9b;
+  --primary-foreground: #14110d;
+  --secondary: #2c251e;
+  --secondary-foreground: #f2ebdd;
+  --muted: #2a241d;
+  --muted-foreground: #b8aa95;
+  --accent: #d6b35e;
+  --accent-foreground: #16130f;
+  --accent-soft: #3a3020;
+  --destructive: #f2877f;
+  --destructive-foreground: #16130f;
+  --success: #86c79a;
+  --warning: #e3b95a;
+  --border: #3a3128;
+  --input: #4a4034;
+  --ring: #86bb9b;
+
+  --tree-line: #9c8d78;
+  --tree-line-highlight: #86bb9b;
+  --tree-node-dim: 0.4;
+
+  --kente-1: #d6b35e;
+  --kente-2: #86bb9b;
+  --kente-3: #b0674a;
+  --kente-4: #8a7336;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-serif tracking-tight;
+    font-optical-sizing: auto;
+  }
+  :focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+}
+
+@layer utilities {
+  /* A thin woven band of colour, used under the header and in empty states. */
+  .kente-band {
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--kente-1) 0 14px,
+      var(--kente-2) 14px 20px,
+      var(--kente-4) 20px 32px,
+      var(--kente-3) 32px 36px,
+      var(--kente-2) 36px 48px,
+      var(--kente-1) 48px 52px
+    );
+  }
+  .kente-pattern {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        color-mix(in srgb, var(--kente-1) 9%, transparent) 0 6px,
+        transparent 6px 18px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--kente-2) 7%, transparent) 0 6px,
+        transparent 6px 18px
+      );
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* React Flow: blend with the palette */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-edge-stroke: var(--tree-line);
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--muted);
+  --xy-controls-button-color: var(--foreground);
+  --xy-controls-button-border-color: var(--border);
+  --xy-attribution-background-color: transparent;
+}
