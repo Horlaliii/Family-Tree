@@ -81,7 +81,8 @@ Useful local URLs:
    - **Email**: enabled. Leave _Confirm email_ on; magic links double as confirmation.
    - **Google**: enable it and paste the Client ID and Secret from a Google Cloud OAuth client (type "Web
      application"). In Google Cloud, set the _Authorized redirect URI_ to the callback URL Supabase shows on the
-     Google provider page (`https://<project-ref>.supabase.co/auth/v1/callback`).
+     Google provider page (`https://<project-ref>.supabase.co/auth/v1/callback`). Then set
+     `NEXT_PUBLIC_GOOGLE_SIGN_IN=true` and redeploy; the "Continue with Google" button is hidden until you do.
    - Leave _Allow new users to sign up_ **on**. The app itself decides who gets in:
      - the first person becomes admin
      - anyone else lands as "pending" and sees nothing until you activate them (see section 6)
@@ -105,6 +106,7 @@ See [`.env.example`](.env.example).
 | `NEXT_PUBLIC_SUPABASE_URL`      | browser + server    | Project Settings → API                              |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server    | Project Settings → API keys (anon / publishable)    |
 | `NEXT_PUBLIC_SITE_URL`          | sign-in email links | your site's address                                 |
+| `NEXT_PUBLIC_GOOGLE_SIGN_IN`    | sign-in page        | `true` once Google is set up (optional)             |
 | `SUPABASE_SERVICE_ROLE_KEY`     | **server only**     | Project Settings → API keys (service_role / secret) |
 | `SUPABASE_JWT_SECRET`           | **server only**     | Project Settings → JWT Keys → legacy JWT secret     |
 | `PASSCODE_COOKIE_SECRET`        | **server only**     | make one: `openssl rand -hex 32`                    |

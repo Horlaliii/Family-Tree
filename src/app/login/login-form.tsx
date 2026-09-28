@@ -57,20 +57,25 @@ export function LoginForm({ next }: { next: string }) {
 
   return (
     <div className="mt-8 space-y-6">
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full"
-        onClick={signInWithGoogle}
-        disabled={googlePending}
-      >
-        {googlePending ? <Loader2 className="animate-spin" /> : <GoogleIcon />}
-        Continue with Google
-      </Button>
+      {/* Only offered once the Google provider is set up in Supabase. */}
+      {process.env.NEXT_PUBLIC_GOOGLE_SIGN_IN === 'true' && (
+        <>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={signInWithGoogle}
+            disabled={googlePending}
+          >
+            {googlePending ? <Loader2 className="animate-spin" /> : <GoogleIcon />}
+            Continue with Google
+          </Button>
 
-      <div className="text-muted-foreground flex items-center gap-3 text-sm">
-        <span className="bg-border h-px flex-1" /> or <span className="bg-border h-px flex-1" />
-      </div>
+          <div className="text-muted-foreground flex items-center gap-3 text-sm">
+            <span className="bg-border h-px flex-1" /> or <span className="bg-border h-px flex-1" />
+          </div>
+        </>
+      )}
 
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="next" value={next} />
