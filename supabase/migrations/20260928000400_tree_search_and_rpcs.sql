@@ -336,7 +336,7 @@ as $$
     'parents', coalesce((
       select jsonb_agg(public.person_card_json(p) || jsonb_build_object(
         'linkId', mp.link_id, 'relationshipType', mp.relationship_type, 'confidence', mp.confidence
-      ) order by p.sex desc, p.birth_year nulls last)
+      ) order by p.sex, p.birth_year nulls last)
       from my_parents mp join public.v_persons p on p.id = mp.parent_id
     ), '[]'::jsonb),
     'unions', coalesce((
@@ -434,7 +434,7 @@ as $$
     case when b.matched_name <> p.display_name then b.matched_name end,
     public.person_card_json(p),
     coalesce((
-      select array_agg(pp.display_name order by pp.sex desc, pp.display_name)
+      select array_agg(pp.display_name order by pp.sex, pp.display_name)
       from public.v_parent_child pc
       join public.v_persons pp on pp.id = pc.parent_id
       where pc.child_id = p.id and pc.relationship_type in ('biological', 'adoptive')
