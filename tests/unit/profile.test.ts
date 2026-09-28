@@ -114,7 +114,7 @@ describe('buildTimeline', () => {
       { id: 'f3', fact_type: 'baptism', fact_date: '1900-01-01', fact_precision: 'year' },
     ] as FactRow[];
     const entries = buildTimeline(p, emptyFamily, facts, [], {});
-    expect(entries.map((e) => e.key)).toEqual(['birth', 'fact-f3', 'fact-f1', 'death', 'fact-f2']);
+    expect(entries.map((e) => e.key)).toEqual(['birth', 'fact-f3', 'fact-f2', 'death', 'fact-f1']);
   });
 
   it('hides birth details that the viewer may not see', () => {

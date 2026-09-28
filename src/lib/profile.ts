@@ -162,20 +162,30 @@ export function buildTimeline(
     });
   }
 
-  // Order by date; undated events keep their natural position (birth first, death last).
-  const rank = (e: TimelineEntry) => (e.kind === 'birth' ? 0 : e.kind === 'death' ? 2 : 1);
-  return entries
-    .map((e, i) => ({ e, i }))
-    .sort((a, b) => {
-      const ka = fuzzyDateSortKey(a.e.date);
-      const kb = fuzzyDateSortKey(b.e.date);
-      if (ka !== null && kb !== null && ka !== kb) return ka - kb;
-      if (rank(a.e) !== rank(b.e)) return rank(a.e) - rank(b.e);
-      if (ka !== null && kb === null) return -1;
-      if (ka === null && kb !== null) return 1;
-      return a.i - b.i;
-    })
-    .map(({ e }) => e);
+  return orderTimeline(entries);
+}
+
+/**
+ * Dated events in date order (ties keep their original order). An undated
+ * birth goes first, undated events go just before the death, and an
+ * undated death goes last.
+ */
+export function orderTimeline(entries: TimelineEntry[]): TimelineEntry[] {
+  const dated = entries
+    .map((e, i) => ({ e, i, k: fuzzyDateSortKey(e.date) }))
+    .filter((x): x is { e: TimelineEntry; i: number; k: number } => x.k !== null)
+    .sort((a, b) => a.k - b.k || a.i - b.i)
+    .map((x) => x.e);
+  const undated = entries.filter((e) => fuzzyDateSortKey(e.date) === null);
+  const undatedBirth = undated.filter((e) => e.kind === 'birth');
+  const undatedDeath = undated.filter((e) => e.kind === 'death');
+  const undatedOther = undated.filter((e) => e.kind !== 'birth' && e.kind !== 'death');
+
+  const result = [...undatedBirth, ...dated];
+  const deathIndex = result.findIndex((e) => e.kind === 'death');
+  if (deathIndex >= 0) result.splice(deathIndex, 0, ...undatedOther);
+  else result.push(...undatedOther);
+  return [...result, ...undatedDeath];
 }
 
 export interface Gap {
