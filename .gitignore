@@ -22,3 +22,4 @@ supabase/.env
 *.log
 .scratch/
 public/elk-worker.min.js
+backups/
