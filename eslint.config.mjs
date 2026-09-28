@@ -13,5 +13,6 @@ export default defineConfig([
     'src/lib/supabase/database.types.ts',
     'playwright-report/**',
     'test-results/**',
+    'public/elk-worker.min.js',
   ]),
 ]);
