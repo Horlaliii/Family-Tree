@@ -47,8 +47,9 @@ npm run dev                      # http://localhost:3000
 `supabase start` applies every migration and loads the sample family (`supabase/seed.sql`), which has
 40 people over 6 generations. The **local passcode is `family-tree`**.
 
-To sign in locally, open **/login**, choose "Email me a sign-in link", and open the email in the local inbox at
-<http://127.0.0.1:54324>. The first account ever created becomes the admin.
+To sign in locally, open **/login**. The first time, it asks you to create the admin account with an email and
+password. After that you sign in with that email and password. (Sign-in links still work too: they arrive in the
+local inbox at <http://127.0.0.1:54324>.)
 
 Useful local URLs:
 
@@ -78,7 +79,8 @@ Useful local URLs:
    - _Redirect URLs_: add `https://ourfamilytree.example.com/auth/callback`. Also add
      `http://localhost:3000/auth/callback` if you'll test locally against this project.
 4. **Authentication → Sign In / Providers**:
-   - **Email**: enabled. Leave _Confirm email_ on; magic links double as confirmation.
+   - **Email**: enabled. This covers both email + password sign-in and magic links. Leave _Confirm email_ on;
+     the admin account made on the set-up page is confirmed automatically.
    - **Google**: enable it and paste the Client ID and Secret from a Google Cloud OAuth client (type "Web
      application"). In Google Cloud, set the _Authorized redirect URI_ to the callback URL Supabase shows on the
      Google provider page (`https://<project-ref>.supabase.co/auth/v1/callback`). Then set
@@ -155,7 +157,7 @@ Measured locally for a passcode visitor:
 2. Add the six environment variables from section 3 for _Production_ (and _Preview_ if you use it).
 3. Deploy. Then set your custom domain, and make sure it matches `NEXT_PUBLIC_SITE_URL` and the Supabase
    _Site URL_ / _Redirect URLs_.
-4. Sign in once to become the admin (section 6), then open **Admin → Settings**:
+4. Open **/login** and create the admin account (section 6), then open **Admin → Settings**:
    - set the family name, the welcome text and the "start exploring from" ancestor
    - **set the family passcode**. Until it's set, nobody but signed-in members can get in.
 
@@ -164,7 +166,19 @@ it automatically.
 
 ## 6. First sign-in and giving relatives access
 
-- **The first account created becomes the admin.** Sign in with Google or a magic link before sharing the site.
+- **The first account created becomes the admin.** Before sharing the site, open **/login**: while there is no
+  admin yet, it shows a set-up form where you choose the admin's email and password. No email is sent, so it
+  works before SMTP is set up. After that, **/login** signs you in with that email and password. You can
+  change the password in _Admin → Settings → Your password_.
+- **Admin account already exists but you can't sign in** (for example, it was made with a magic link that
+  never worked, or you forgot the password): set a password in _Supabase → SQL Editor_, then sign in with it
+  and change it in Admin → Settings:
+  ```sql
+  update auth.users
+     set encrypted_password = extensions.crypt('a-temporary-password', extensions.gen_salt('bf')),
+         email_confirmed_at = coalesce(email_confirmed_at, now())
+   where email = 'you@example.com';
+  ```
 - After that, **new sign-ups are "pending"**: they can use the passcode like any visitor, but see no private
   details. Phase 2 adds invite links and a user-management page. Until then, activate a relative in
   _Supabase → SQL Editor_:

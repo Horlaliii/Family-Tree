@@ -78,3 +78,25 @@ export async function setPasscodeEnabled(enabled: boolean): Promise<ActionResult
   clearGateCache();
   return { ok: true };
 }
+
+const passwordSchema = z
+  .object({
+    password: z.string().min(8, 'Use at least 8 characters').max(200),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, { message: 'The two passwords do not match', path: ['confirm'] });
+
+/** Set or change the signed-in user's own sign-in password. */
+export async function changeOwnPassword(input: z.input<typeof passwordSchema>): Promise<ActionResult> {
+  if ((await getViewer())?.kind !== 'user') return fail('Please sign in first.');
+  const parsed = passwordSchema.safeParse(input);
+  if (!parsed.success) return zodFail(parsed.error);
+  const { error } = await (await createUserSupabase()).auth.updateUser({ password: parsed.data.password });
+  if (error) {
+    if (/different from the old/i.test(error.message)) return fail('That is already your password.');
+    if (/weak/i.test(error.message)) return fail(error.message);
+    console.error('Change password error', error);
+    return fail('We could not change your password. Please try again.');
+  }
+  return { ok: true };
+}
