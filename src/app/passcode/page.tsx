@@ -21,7 +21,7 @@ export default async function PasscodePage({ searchParams }: { searchParams: Pro
       <div className="kente-band h-2" aria-hidden />
       <div className="flex flex-1 items-center justify-center px-5 py-10">
         <div className="w-full max-w-sm text-center">
-          <p className="text-accent text-sm font-medium tracking-widest uppercase">Welcome to</p>
+          <p className="text-accent-text text-sm font-medium tracking-widest uppercase">Welcome to</p>
           <h1 className="mt-2 text-4xl font-semibold text-balance">{siteName}</h1>
           <p className="text-muted-foreground mt-3">
             This family history is private. Enter the family passcode to come in.

@@ -22,6 +22,8 @@
   --accent: #b8913a;
   --accent-foreground: #2b2118;
   --accent-soft: #f5ead0;
+  /* Gold dark enough for small text on cream (WCAG AA). */
+  --accent-text: #7d5f1c;
   --destructive: #b3261e;
   --destructive-foreground: #ffffff;
   --success: #2f6b3f;
@@ -59,6 +61,7 @@
   --accent: #d6b35e;
   --accent-foreground: #16130f;
   --accent-soft: #3a3020;
+  --accent-text: #e2c27a;
   --destructive: #f2877f;
   --destructive-foreground: #16130f;
   --success: #86c79a;
@@ -93,6 +96,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);

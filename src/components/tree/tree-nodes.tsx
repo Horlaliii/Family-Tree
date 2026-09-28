@@ -32,10 +32,7 @@ export const PersonNode = memo(function PersonNode({ data }: NodeProps<PersonFlo
   const { person, isFocus, dim, photoUrl } = data;
   const years = formatLifeYears(person);
   return (
-    <div
-      style={{ width: PERSON_WIDTH, height: PERSON_HEIGHT, opacity: dim ? 'var(--tree-node-dim)' : 1 }}
-      className="relative"
-    >
+    <div style={{ width: PERSON_WIDTH, height: PERSON_HEIGHT }} className="relative">
       <Handle type="target" position={Position.Top} className={hiddenHandle} isConnectable={false} />
       {person.hasMoreParents && (
         <button
@@ -53,19 +50,19 @@ export const PersonNode = memo(function PersonNode({ data }: NodeProps<PersonFlo
       <button
         type="button"
         onClick={() => data.onSelect(person.id)}
-        aria-label={`${person.name}${years ? `, ${years}` : ''}${isFocus ? ' (centre of the tree)' : '. Show tree around them'}`}
         className={cn(
-          'nodrag bg-card flex size-full items-center gap-2.5 rounded-xl border-2 px-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
+          'nodrag flex size-full items-center gap-2.5 rounded-xl border-2 px-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
           isFocus
-            ? 'border-primary ring-primary/25 ring-4'
+            ? 'bg-card border-primary ring-primary/25 ring-4'
             : person.onLine
-              ? 'border-primary/45'
-              : 'border-border',
+              ? 'bg-card border-primary/45'
+              : 'border-border bg-muted/70 shadow-none',
         )}
       >
         <span
           className={cn(
             'flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border font-serif text-sm font-semibold',
+            dim && 'opacity-60 saturate-50',
             person.sex === 'female'
               ? 'border-accent/60 bg-accent-soft'
               : person.sex === 'male'
@@ -82,8 +79,13 @@ export const PersonNode = memo(function PersonNode({ data }: NodeProps<PersonFlo
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 text-sm leading-tight font-semibold">{person.name}</span>
+          <span
+            className={cn('line-clamp-2 text-sm leading-tight font-semibold', dim && 'text-muted-foreground')}
+          >
+            {person.name}
+          </span>
           {years && <span className="text-muted-foreground mt-0.5 block text-xs">{years}</span>}
+          <span className="sr-only">{isFocus ? ' (centre of the tree)' : '. Show the tree around them'}</span>
         </span>
       </button>
       {person.hasMoreChildren && (

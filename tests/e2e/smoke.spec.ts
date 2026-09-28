@@ -21,7 +21,7 @@ test('passcode gate → tree → profile', async ({ page }) => {
   // The right one lands back on the tree.
   await enterPasscode(page);
   await expect(page).toHaveURL(/\/tree/);
-  const kwame = page.getByRole('button', { name: /^Opanyin Kwame Mensah, 1898 – 1972/ });
+  const kwame = page.getByRole('button', { name: /^Opanyin Kwame Mensah\s*1898 – 1972/ });
   await expect(page.getByRole('button', { name: /^Nana Kwaku Boateng Mensah/ })).toBeVisible();
 
   // Choosing someone re-centres the tree on them (keyboard works too).

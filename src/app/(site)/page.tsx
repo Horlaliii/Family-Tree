@@ -64,7 +64,7 @@ export default async function HomePage() {
           {featuredCard && (
             <Card className="md:col-span-3">
               <CardHeader>
-                <p className="text-accent text-sm font-medium tracking-wide uppercase">
+                <p className="text-accent-text text-sm font-medium tracking-wide uppercase">
                   Start exploring from
                 </p>
               </CardHeader>
