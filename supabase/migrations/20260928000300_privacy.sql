@@ -74,7 +74,9 @@ to authenticated, visitor;
 grant execute on function
   public.relationship_warnings(uuid),
   public.generate_person_slug(text),
-  public.begin_change_group()
+  public.begin_change_group(),
+  -- called from the person_names trigger while editors save names
+  public.refresh_display_name(uuid)
 to authenticated;
 
 -- Trigger functions are called by the database itself and need no grants.
