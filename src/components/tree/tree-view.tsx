@@ -342,7 +342,8 @@ function TreeCanvas({
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        onlyRenderVisibleElements
+        // Keep every node reachable by keyboard and screen readers unless the window is big.
+        onlyRenderVisibleElements={nodes.length > 150}
         minZoom={0.15}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
